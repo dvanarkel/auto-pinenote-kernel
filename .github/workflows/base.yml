@@ -1,12 +1,22 @@
 name: base
 on: [push]
 jobs:
-  install-deps:
+  do-the-thing:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: cat /etc/apt/sources.list | sed s/^deb/deb-src/ | sudo tee /etc/apt/sources.list.d/sources.src.list
-      - run: sudo apt update
-      - run: sudo apt build-dep -y linux-base
-      - run: sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex
-
+      - name: enable-sources
+        run: cat /etc/apt/sources.list | sed s/^deb/deb-src/ | sudo tee /etc/apt/sources.list.d/sources.src.list
+      - name: apty-stuff
+        run: |
+          sudo apt update
+          sudo apt build-dep -y linux-base
+          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison
+      - name: fetch
+        run: git clone https://github.com/smaeul/linux.git; 
+      - name: switch-branch
+        run: git checkout rk356x-ebc-dev
+        working-directory: ./linux
+      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- pinenote_defconfig
+        working-directory: ./linux
+      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
+        working-directory: ./linux

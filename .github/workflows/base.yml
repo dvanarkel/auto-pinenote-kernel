@@ -1,0 +1,12 @@
+name: base
+on: [push]
+jobs:
+	install-deps:
+		runs-on: debian-latest
+			steps:
+			- uses: actions/checkout@v2
+			- run: cat /etc/apt/sources.list | sed s/^deb/deb-src/ > /etc/apt/sources.list.d/sources.src.list
+			- run: apt update
+			- run: apt build-dep -y linux-base
+			- run: apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex
+

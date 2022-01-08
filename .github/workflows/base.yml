@@ -38,7 +38,7 @@ jobs:
         id: version
       - name: create-release
         uses: actions/create-release@v1
-        id: create-release
+        id: create_release
         with:
           draft: false
           prerelease: false

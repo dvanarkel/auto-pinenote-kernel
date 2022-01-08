@@ -10,7 +10,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt build-dep -y linux-base
-          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison
+          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison bc
       - name: fetch
         run: git clone https://github.com/smaeul/linux.git; 
       - name: switch-branch

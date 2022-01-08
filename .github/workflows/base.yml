@@ -10,7 +10,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt build-dep -y linux-base
-          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison bc
+          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison bc zip
       - name: fetch
         run: git clone https://github.com/smaeul/linux.git; 
       - name: switch-branch
@@ -20,3 +20,40 @@ jobs:
         working-directory: ./linux
       - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
         working-directory: ./linux
+      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${PWD}/pack modules_install
+        working-directory: ./linux
+      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+        working-directory: ./linux
+      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_PATH=${PWD}/pack dtbs_install
+        working-directory: ./linux
+      - name: build-zip
+        run: |
+          mkdir output
+          mv linux/arch/arm64/boot/Image output/
+          mv linux/pack/lib/modules output/
+          mv linux/pack/dtbs/5.16.0-rc8/rockchip/rk3566-pinenote.dtb output/
+          cd output && zip ../release.zip
+      - name: sams-version
+        run: echo "::set-output name=version::$(cd linux/; git rev-parse --short HEAD)"
+        id: version
+      - name: create-release
+        uses: actions/create-release@v1
+        id: create-release
+        with:
+          draft: false
+          prerelease: false
+          release_name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref }}
+          body: "Automated build of smauel's kernel"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload-release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release.zip
+          asset_name: release.zip
+          asset_content_type: application/zip
+

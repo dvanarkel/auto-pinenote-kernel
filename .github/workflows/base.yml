@@ -31,6 +31,8 @@ jobs:
           mkdir output
           mv linux/arch/arm64/boot/Image output/
           mv linux/pack/lib/modules output/
+          rm linux/pack/lib/modules/5*/build
+          rm linux/pack/lib/modules/5*/source
           mv linux/pack/dtbs/5*/rockchip/rk3566-pinenote.dtb output/
           cd output && zip ../release.zip -r *
       - name: sams-version

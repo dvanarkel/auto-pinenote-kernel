@@ -1,42 +1,49 @@
-name: base
-on: [push]
+name: build
+on:
+  workflow_dispatch:
+  push:
+    tags:
+    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 jobs:
   do-the-thing:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: enable-sources
         run: cat /etc/apt/sources.list | sed s/^deb/deb-src/ | sudo tee /etc/apt/sources.list.d/sources.src.list
       - name: apty-stuff
         run: |
           sudo apt update
           sudo apt build-dep -y linux-base
-          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison bc zip
-      - name: fetch
-        run: git clone https://github.com/smaeul/linux.git; 
-      - name: switch-branch
-        run: git checkout rk356x-ebc-dev
+          sudo apt install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu git flex bison bc zip jq
+      - run: mkdir linux
+      - run: curl -L https://github.com/smaeul/linux/archive/refs/heads/rk356x-ebc-dev.tar.gz | tar -zxf - -C linux --strip-components=1
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- pinenote_defconfig
         working-directory: ./linux
-      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- pinenote_defconfig
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
         working-directory: ./linux
-      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=../build/pack modules_install
         working-directory: ./linux
-      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${PWD}/pack modules_install
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
         working-directory: ./linux
-      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_PATH=../build/pack dtbs_install
         working-directory: ./linux
-      - run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_PATH=${PWD}/pack dtbs_install
+      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bindeb-pkg
         working-directory: ./linux
       - name: build-zip
         run: |
           mkdir output
-          mv linux/arch/arm64/boot/Image output/
-          rm linux/pack/lib/modules/5*/build
-          rm linux/pack/lib/modules/5*/source
-          mv linux/pack/lib/modules output/
-          mv linux/pack/dtbs/5*/rockchip/rk3566-pinenote.dtb output/
+          mv build/arch/arm64/boot/Image output/
+          rm build/pack/lib/modules/5*/build || true
+          rm build/pack/lib/modules/5*/source || true
+          mv build/pack/lib/modules output/
+          mv build/pack/dtbs/5*/rockchip/rk3566-pinenote.dtb output/
+          mv *deb output/
           cd output && zip ../release.zip -r *
+      - name: fake-output
+        run: touch release.zip
       - name: sams-version
-        run: echo "::set-output name=version::$(cd linux/; git rev-parse --short HEAD)"
+        run: echo "::set-output name=version::$(cat latest_kernel)"
         id: version
       - name: create-release
         uses: actions/create-release@v1
@@ -49,6 +56,19 @@ jobs:
           body: "Automated build of smauel's kernel"
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Start SSH via Ngrok
+        id: ngrok
+        if: ${{ failure() }}
+        run: curl -sL https://gist.githubusercontent.com/ClashTheBunny/ac7ca189e1f8ab9eb5686662412a4cce/raw/7099b9db76729dc5761da72aa8525f632d8875c9/debug-github-actions.sh | bash
+        env:
+          # After sign up on the https://ngrok.com/
+          # You can find this token here: https://dashboard.ngrok.com/get-started/setup
+          NGROK_TOKEN: ${{ secrets.NGROK_TOKEN }}
+          # This password you will use when authorizing via SSH
+          USER_PASS: ${{ secrets.USER_PASS }}
+      - name: Sleep 1 hour
+        if: ${{ failure() }}
+        run: sleep 1h
       - name: upload-release
         uses: actions/upload-release-asset@v1
         env:
@@ -58,4 +78,3 @@ jobs:
           asset_path: ./release.zip
           asset_name: release.zip
           asset_content_type: application/zip
-

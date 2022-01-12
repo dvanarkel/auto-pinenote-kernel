@@ -1,0 +1,31 @@
+name: base
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * *'
+jobs:
+  check-the-thing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ssh-key: "${{ secrets.COMMIT_KEY }}"
+      - name: sams-version
+        run: echo "::set-output name=version::$(curl -s -L https://api.github.com/repos/smaeul/linux/git/refs/heads/rk356x-ebc-dev | jq '.object.sha' -r | cut -c 1-7)"
+        id: version
+      - name: Check for update
+        run: |
+          echo ${{ steps.version.outputs.version }} > latest_kernel
+      - name: Commit update if diff
+        run: |
+          git fetch -a
+          git reset --hard origin/main
+          if output=$(git status --porcelain | grep latest_kernel) && [[ -n "${output}" ]]; then
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add latest_kernel
+            git commit -m "auto-bumping kernel"
+            git push
+            git tag v$(cat latest_kernel | cut -d _ -f 2 | tr -d ' ~^:?*[\\')
+            git push --tags
+          fi

@@ -20,7 +20,7 @@ jobs:
       - run: curl -L https://github.com/smaeul/linux/archive/refs/heads/rk35/pinenote-next.tar.gz | tar -zxf - -C linux --strip-components=1
       - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- pinenote_defconfig
         working-directory: ./linux
-      - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
+      - run: make -j 4 O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- all
         working-directory: ./linux
       - run: make -j $(nproc) O=../build/ ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=../build/pack modules_install
         working-directory: ./linux
